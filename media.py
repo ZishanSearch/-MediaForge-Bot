@@ -226,8 +226,6 @@ def register_media_handlers(app):
         )
 
 
-        await processing_message.delete()
-
 
 
     # Thumbnail Check
