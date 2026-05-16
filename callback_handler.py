@@ -1,16 +1,6 @@
 import os
 
-import shutil
-
 from pyrogram import filters
-
-from pyrogram.types import (
-
-    InlineKeyboardMarkup,
-
-    InlineKeyboardButton
-
-)
 
 from owner_panel import (
 
@@ -21,7 +11,6 @@ from owner_panel import (
     get_cpu
 
 )
-
 
 
 def register_callback_handlers(app):
@@ -43,44 +32,12 @@ def register_callback_handlers(app):
 
     ):
 
-        buttons = InlineKeyboardMarkup(
-
-            [
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔄 Refresh",
-
-                        callback_data="storage"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔙 Back",
-
-                        callback_data="owner_panel"
-
-                    )
-
-                ]
-
-            ]
-
-        )
+        await callback_query.answer()
 
 
         await callback_query.message.edit_text(
 
-            get_storage(),
-
-            reply_markup=buttons
+            get_storage()
 
         )
 
@@ -102,44 +59,12 @@ def register_callback_handlers(app):
 
     ):
 
-        buttons = InlineKeyboardMarkup(
-
-            [
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔄 Refresh",
-
-                        callback_data="ram"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔙 Back",
-
-                        callback_data="owner_panel"
-
-                    )
-
-                ]
-
-            ]
-
-        )
+        await callback_query.answer()
 
 
         await callback_query.message.edit_text(
 
-            get_ram(),
-
-            reply_markup=buttons
+            get_ram()
 
         )
 
@@ -161,44 +86,12 @@ def register_callback_handlers(app):
 
     ):
 
-        buttons = InlineKeyboardMarkup(
-
-            [
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔄 Refresh",
-
-                        callback_data="cpu"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔙 Back",
-
-                        callback_data="owner_panel"
-
-                    )
-
-                ]
-
-            ]
-
-        )
+        await callback_query.answer()
 
 
         await callback_query.message.edit_text(
 
-            get_cpu(),
-
-            reply_markup=buttons
+            get_cpu()
 
         )
 
@@ -220,90 +113,19 @@ def register_callback_handlers(app):
 
     ):
 
-        total_files = 0
-
-        total_size = 0
+        await callback_query.answer()
 
 
-        for file in os.listdir("temp"):
+        temp_files = len(
 
-            file_path = f"temp/{file}"
-
-
-            if os.path.isfile(file_path):
-
-                total_files += 1
-
-                total_size += os.path.getsize(file_path)
-
-
-        size_mb = round(
-
-            total_size / (1024 * 1024),
-
-            2
-
-        )
-
-
-        buttons = InlineKeyboardMarkup(
-
-            [
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🧹 Clean Temp",
-
-                        callback_data="clean_temp"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔄 Refresh",
-
-                        callback_data="temp"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🔙 Back",
-
-                        callback_data="owner_panel"
-
-                    )
-
-                ]
-
-            ]
+            os.listdir("temp")
 
         )
 
 
         await callback_query.message.edit_text(
 
-            (
-
-                f"📂 Temp Information\n\n"
-
-                f"Files: {total_files}\n"
-
-                f"Size: {size_mb} MB"
-
-            ),
-
-            reply_markup=buttons
+            f"📂 Temp Files: {temp_files}"
 
         )
 
@@ -325,171 +147,81 @@ def register_callback_handlers(app):
 
     ):
 
-        deleted = 0
+        await callback_query.answer()
 
 
         for file in os.listdir("temp"):
 
-            file_path = f"temp/{file}"
-
-
             try:
 
-                if os.path.isfile(file_path):
+                path = f"temp/{file}"
 
-                    os.remove(file_path)
 
-                    deleted += 1
+                if os.path.isfile(path):
+
+                    os.remove(path)
 
             except:
+
                 pass
 
 
         await callback_query.message.edit_text(
 
-            (
-
-                f"🧹 Temp Cleaned Successfully\n\n"
-
-                f"Deleted Files: {deleted}"
-
-            )
+            "🧹 Temp Cleaned Successfully"
 
         )
 
 
 
-    # Back To Owner Panel
+    # Set Cover Button
 
     @app.on_callback_query(
 
-        filters.regex("^owner_panel$")
+        filters.regex("^set_cover$")
 
     )
 
-    async def owner_panel_callback(
+    async def set_cover_callback(
 
         client,
 
         callback_query
 
-    ):
-
-        buttons = InlineKeyboardMarkup(
-
-            [
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "💾 Storage",
-
-                        callback_data="storage"
-
-                    ),
-
-                    InlineKeyboardButton(
-
-                        "🧠 RAM",
-
-                        callback_data="ram"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "⚡ CPU",
-
-                        callback_data="cpu"
-
-                    ),
-
-                    InlineKeyboardButton(
-
-                        "📂 Temp",
-
-                        callback_data="temp"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🧹 Clean Temp",
-
-                        callback_data="clean_temp"
-
-                    )
-
-                ]
-
-            ]
-
-        )
-
-
-        await callback_query.message.edit_text(
-
-            "⚙ Owner Control Panel",
-
-            reply_markup=buttons
-
-        )
-
-    @app.on_callback_query(
-        filters.regex("thumbnail_help")
-    )
-    async def thumbnail_help(
-        client,
-        callback_query
     ):
 
         await callback_query.answer()
+
 
         await callback_query.message.reply_text(
 
-            "🖼 Send image first to save thumbnail."
+            "🖼 Send image to save cover"
 
         )
 
 
+
+    # Set Metadata Button
+
     @app.on_callback_query(
-        filters.regex("metadata_help")
+
+        filters.regex("^set_metadata$")
+
     )
-    async def metadata_help(
+
+    async def set_metadata_callback(
+
         client,
+
         callback_query
+
     ):
 
         await callback_query.answer()
+
 
         await callback_query.message.reply_text(
 
             "📝 Use /set_metadata"
-
-        )
-
-
-    @app.on_callback_query(
-        filters.regex("screenshot_help")
-    )
-    async def screenshot_help(
-        client,
-        callback_query
-    ):
-
-        await callback_query.answer()
-
-        await callback_query.message.reply_text(
-
-            "📸 Send video to generate screenshots."
 
         )
