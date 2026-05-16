@@ -39,8 +39,7 @@ def register_start_handlers(app):
 
     )
 
-    async def start_command(
-    from database import users    
+    async def start_command(    
 
         client,
 
