@@ -10,3 +10,4 @@ hachoir
 pymongo
 dnspython
 asyncio
+flask
