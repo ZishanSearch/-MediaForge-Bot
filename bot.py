@@ -25,6 +25,7 @@ from media import register_media_handlers
 from metadata_setup import register_metadata_setup
 
 from broadcast import register_broadcast_handlers
+from command_handler import register_command_handlers
 
 
 app = Client(
@@ -58,6 +59,7 @@ register_metadata_setup(app)
 
 register_broadcast_handlers(app)
 
+register_command_handlers(app)
 
 # Fake Web Server
 
