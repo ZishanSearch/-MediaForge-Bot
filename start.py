@@ -113,7 +113,7 @@ def register_start_handlers(app):
 
         await message.reply_photo(
 
-            photo="https://graph.org/file/xxxxx.jpg",
+            photo="https://i.postimg.cc/MHp8BbD1/bot-start-banner-2nd.png",
 
             caption=caption,
 
