@@ -38,12 +38,34 @@ def register_start_handlers(app):
     )
 
     async def start_command(
+    from database import users    
 
         client,
 
         message
 
     ):
+
+        user_id = message.from_user.id
+
+
+        await users.update_one(
+
+            {"user_id": user_id},
+
+            {
+
+                "$set": {
+
+                    "user_id": user_id
+
+                }
+
+            },
+
+            upsert=True
+
+        )
 
         buttons = InlineKeyboardMarkup(
 
