@@ -174,7 +174,7 @@ def register_start_handlers(app):
 
                         "🖼 Thumbnail",
 
-                        callback_data="dummy"
+                        callback_data="thumbnail_help"
 
                     ),
 
@@ -182,7 +182,7 @@ def register_start_handlers(app):
 
                         "📝 Metadata",
 
-                        callback_data="dummy"
+                        callback_data="metadata_help"
 
                     )
 
@@ -194,7 +194,7 @@ def register_start_handlers(app):
 
                         "📸 Screenshots",
 
-                        callback_data="dummy"
+                        callback_data="screenshot_help"
 
                     ),
 
