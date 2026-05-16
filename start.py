@@ -20,6 +20,8 @@ from config import (
 
 )
 
+from database import users
+
 
 CHANNEL_USERNAME = "xuluzone"
 
