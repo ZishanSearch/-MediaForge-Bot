@@ -8,6 +8,8 @@ from pyrogram.types import (
 
 )
 
+from pyrogram.errors import UserNotParticipant
+
 from config import (
 
     BOT_NAME,
@@ -18,6 +20,10 @@ from config import (
 
 )
 
+
+CHANNEL_USERNAME = "xuluzone"
+
+OTHER_BOT = "https://t.me/Cleanerxulubot"
 
 
 def register_start_handlers(app):
@@ -47,21 +53,17 @@ def register_start_handlers(app):
 
                     InlineKeyboardButton(
 
-                        "📢 Join Channel",
+                        "🤖 Other Bot",
 
-                        url=CHANNEL_LINK
+                        url=OTHER_BOT
 
-                    )
-
-                ],
-
-                [
+                    ),
 
                     InlineKeyboardButton(
 
-                        "👨‍💻 Contact Dev",
+                        "📢 Join Channel",
 
-                        url=f"https://t.me/{DEV_USERNAME.replace('@', '')}"
+                        url=CHANNEL_LINK
 
                     )
 
@@ -86,30 +88,32 @@ def register_start_handlers(app):
 
         caption = (
 
-            f"👋 Welcome {message.from_user.mention}\n\n"
+            f"👋 Hello {message.from_user.mention}\n\n"
 
-            f"🎬 {BOT_NAME}\n\n"
+            f"Welcome to {BOT_NAME}\n\n"
 
-            f"⚡ Advanced Media Processing Bot\n\n"
+            f"⚡ Advanced media processing bot\n"
 
-            f"✅ Thumbnail Support\n"
+            f"with thumbnail editor,\n"
 
-            f"✅ Metadata Editor\n"
+            f"metadata editor,\n"
 
-            f"✅ Audio Support\n"
+            f"screenshots,\n"
 
-            f"✅ Screenshot Generator\n"
+            f"audio detection\n"
 
-            f"✅ Multi Audio Detection\n"
+            f"and more.\n\n"
 
-            f"✅ High GB Support"
+            f"📢 Please join our channel\n"
+
+            f"to continue using the bot."
 
         )
 
 
         await message.reply_photo(
 
-            photo="https://i.postimg.cc/MHp8BbD1/bot-start-banner-2nd.png",
+            photo="https://graph.org/file/xxxxx.jpg",
 
             caption=caption,
 
@@ -119,7 +123,7 @@ def register_start_handlers(app):
 
 
 
-    # Joined Callback
+    # Joined Button
 
     @app.on_callback_query(
 
@@ -135,17 +139,106 @@ def register_start_handlers(app):
 
     ):
 
-        await callback_query.answer(
+        user_id = callback_query.from_user.id
 
-            "✅ Access Granted",
 
-            show_alert=True
+        try:
+
+            await client.get_chat_member(
+
+                CHANNEL_USERNAME,
+
+                user_id
+
+            )
+
+        except UserNotParticipant:
+
+
+            return await callback_query.answer(
+
+                "❌ Please join the channel first.",
+
+                show_alert=True
+
+            )
+
+
+        buttons = InlineKeyboardMarkup(
+
+            [
+
+                [
+
+                    InlineKeyboardButton(
+
+                        "🖼 Thumbnail",
+
+                        callback_data="dummy"
+
+                    ),
+
+                    InlineKeyboardButton(
+
+                        "📝 Metadata",
+
+                        callback_data="dummy"
+
+                    )
+
+                ],
+
+                [
+
+                    InlineKeyboardButton(
+
+                        "📸 Screenshots",
+
+                        callback_data="dummy"
+
+                    ),
+
+                    InlineKeyboardButton(
+
+                        "👨‍💻 Contact Dev",
+
+                        url=f"https://t.me/{DEV_USERNAME.replace('@', '')}"
+
+                    )
+
+                ]
+
+            ]
 
         )
 
 
-        await callback_query.message.reply_text(
+        caption = (
 
-            "⚡ You Can Now Use The Bot"
+            f"👋 Hello {callback_query.from_user.mention}\n\n"
+
+            f"Welcome to {BOT_NAME}\n\n"
+
+            f"⚡ Your advanced media editor\n"
+
+            f"is ready to use."
+
+        )
+
+
+        await callback_query.message.reply_photo(
+
+            photo="https://i.postimg.cc/MHp8BbD1/bot-start-banner-2nd.png",
+
+            caption=caption,
+
+            reply_markup=buttons
+
+        )
+
+
+        await callback_query.answer(
+
+            "✅ Access Granted"
 
         )
