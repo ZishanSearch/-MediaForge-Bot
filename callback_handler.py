@@ -443,3 +443,53 @@ def register_callback_handlers(app):
             reply_markup=buttons
 
         )
+
+    @app.on_callback_query(
+        filters.regex("thumbnail_help")
+    )
+    async def thumbnail_help(
+        client,
+        callback_query
+    ):
+
+        await callback_query.answer()
+
+        await callback_query.message.reply_text(
+
+            "🖼 Send image first to save thumbnail."
+
+        )
+
+
+    @app.on_callback_query(
+        filters.regex("metadata_help")
+    )
+    async def metadata_help(
+        client,
+        callback_query
+    ):
+
+        await callback_query.answer()
+
+        await callback_query.message.reply_text(
+
+            "📝 Use /set_metadata"
+
+        )
+
+
+    @app.on_callback_query(
+        filters.regex("screenshot_help")
+    )
+    async def screenshot_help(
+        client,
+        callback_query
+    ):
+
+        await callback_query.answer()
+
+        await callback_query.message.reply_text(
+
+            "📸 Send video to generate screenshots."
+
+        )
