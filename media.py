@@ -1,6 +1,6 @@
 import os
 
-import uuid
+import asyncio
 
 from pyrogram import filters
 
@@ -8,39 +8,28 @@ from pyrogram.types import (
 
     InlineKeyboardMarkup,
 
-    InlineKeyboardButton,
-
-    InputMediaPhoto
+    InlineKeyboardButton
 
 )
 
 from database import users
 
-from cleaner import delete_files
-
 from ffmpeg_tools import (
 
     process_media,
 
-    get_media_info,
-
     generate_screenshots,
 
-    detect_audio_languages,
+    get_media_info,
 
-    get_duration
-
-)
-
-
-os.makedirs(
-
-    "temp",
-
-    exist_ok=True
+    detect_audio_languages
 
 )
 
+from cleaner import delete_files
+
+
+user_files = {}
 
 
 def register_media_handlers(app):
@@ -61,6 +50,20 @@ def register_media_handlers(app):
         user_id = message.from_user.id
 
 
+        processing = await message.reply_text(
+
+            "⚡"
+
+        )
+
+
+        photo_path = await message.download(
+
+            file_name=f"temp/{user_id}_cover.jpg"
+
+        )
+
+
         await users.update_one(
 
             {"user_id": user_id},
@@ -69,7 +72,7 @@ def register_media_handlers(app):
 
                 "$set": {
 
-                    "cover_id": message.photo.file_id
+                    "cover": photo_path
 
                 }
 
@@ -80,27 +83,28 @@ def register_media_handlers(app):
         )
 
 
+        await processing.delete()
+
+
         await message.reply_text(
 
-            "✅ Cover Saved Successfully"
+            "🖼 Cover Saved Successfully"
 
         )
 
 
 
-    # Media Detection
+    # Video Handler
 
     @app.on_message(
 
         filters.video |
 
-        filters.audio |
-
         filters.document
 
     )
 
-    async def media_handler(
+    async def video_handler(
 
         client,
 
@@ -108,30 +112,51 @@ def register_media_handlers(app):
 
     ):
 
-        media_type = "video"
+        user_id = message.from_user.id
 
 
-        if message.audio:
-
-            media_type = "audio"
+        user_files[user_id] = message
 
 
-        buttons = []
+        buttons = InlineKeyboardMarkup(
 
-
-        # Audio Buttons
-
-        if media_type == "audio":
-
-            buttons = [
+            [
 
                 [
 
                     InlineKeyboardButton(
 
-                        "📝 Metadata",
+                        "🖼 Set Cover",
 
-                        callback_data=f"metadata_{message.id}"
+                        callback_data="set_cover"
+
+                    ),
+
+                    InlineKeyboardButton(
+
+                        "📝 Set Metadata",
+
+                        callback_data="set_metadata"
+
+                    )
+
+                ],
+
+                [
+
+                    InlineKeyboardButton(
+
+                        "📸 Screenshots",
+
+                        callback_data="screenshots"
+
+                    ),
+
+                    InlineKeyboardButton(
+
+                        "🎵 Audio Info",
+
+                        callback_data="audio_info"
 
                     )
 
@@ -143,72 +168,15 @@ def register_media_handlers(app):
 
                         "⚡ Process",
 
-                        callback_data=f"both_{message.id}"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "ℹ Media Info",
-
-                        callback_data=f"info_{message.id}"
-
-                    )
-
-                ]
-
-            ]
-
-
-        # Video Buttons
-
-        else:
-
-            buttons = [
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "🖼 Thumbnail",
-
-                        callback_data=f"thumbnail_{message.id}"
+                        callback_data="process_media"
 
                     ),
 
                     InlineKeyboardButton(
 
-                        "📝 Metadata",
-
-                        callback_data=f"metadata_{message.id}"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "⚡ Both",
-
-                        callback_data=f"both_{message.id}"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
                         "ℹ Media Info",
 
-                        callback_data=f"info_{message.id}"
+                        callback_data="media_info"
 
                     )
 
@@ -216,27 +184,28 @@ def register_media_handlers(app):
 
             ]
 
+        )
 
-        processing_message = await message.reply_text(
 
-            "⚡",
+        await message.reply_text(
 
-            reply_markup=InlineKeyboardMarkup(buttons)
+            "⚡ Select Action",
+
+            reply_markup=buttons
 
         )
 
 
 
-
-    # Thumbnail Check
+    # Process Media
 
     @app.on_callback_query(
 
-        filters.regex("^thumbnail_")
+        filters.regex("process_media")
 
     )
 
-    async def thumbnail_callback(
+    async def process_callback(
 
         client,
 
@@ -247,284 +216,69 @@ def register_media_handlers(app):
         user_id = callback_query.from_user.id
 
 
-        data = await users.find_one(
+        if user_id not in user_files:
+
+            return await callback_query.answer(
+
+                "❌ Send media first",
+
+                show_alert=True
+
+            )
+
+
+        processing = await callback_query.message.reply_text(
+
+            "⚡"
+
+        )
+
+
+        media_message = user_files[user_id]
+
+
+        input_file = await media_message.download(
+
+            file_name=f"temp/{user_id}_input.mkv"
+
+        )
+
+
+        output_file = f"temp/{user_id}_output.mkv"
+
+
+        user_data = await users.find_one(
 
             {"user_id": user_id}
 
-        )
+        ) or {}
 
 
-        if not data or "cover_id" not in data:
+        metadata = user_data.get(
 
+            "metadata",
 
-            buttons = InlineKeyboardMarkup(
-
-                [
-
-                    [
-
-                        InlineKeyboardButton(
-
-                            "⚡ Continue Without Thumbnail",
-
-                            callback_data="continue_without_thumb"
-
-                        )
-
-                    ],
-
-                    [
-
-                        InlineKeyboardButton(
-
-                            "🖼 Set Cover",
-
-                            callback_data="set_cover"
-
-                        )
-
-                    ]
-
-                ]
-
-            )
-
-
-            return await callback_query.message.reply_text(
-
-                "⚠ Cover Image Not Found",
-
-                reply_markup=buttons
-
-            )
-
-
-        await callback_query.answer(
-
-            "✅ Cover Found"
+            {}
 
         )
 
 
+        cover_path = user_data.get(
 
-    # Metadata Check
-
-    @app.on_callback_query(
-
-        filters.regex("^metadata_")
-
-    )
-
-    async def metadata_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        user_id = callback_query.from_user.id
-
-
-        data = await users.find_one(
-
-            {"user_id": user_id}
+            "cover"
 
         )
-
-
-        if not data or "metadata" not in data:
-
-
-            buttons = InlineKeyboardMarkup(
-
-                [
-
-                    [
-
-                        InlineKeyboardButton(
-
-                            "⚡ Continue Without Metadata",
-
-                            callback_data="continue_without_metadata"
-
-                        )
-
-                    ],
-
-                    [
-
-                        InlineKeyboardButton(
-
-                            "📝 Set Metadata",
-
-                            callback_data="set_metadata"
-
-                        )
-
-                    ]
-
-                ]
-
-            )
-
-
-            return await callback_query.message.reply_text(
-
-                "⚠ Metadata Not Found",
-
-                reply_markup=buttons
-
-            )
-
-
-        await callback_query.answer(
-
-            "✅ Metadata Found"
-
-        )
-
-
-
-    # Main Processing
-
-    @app.on_callback_query(
-
-        filters.regex("^both_")
-
-    )
-
-    async def both_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        user_id = callback_query.from_user.id
-
-
-        data = await users.find_one(
-
-            {"user_id": user_id}
-
-        )
-
-
-        await callback_query.answer(
-
-            "⚡ Processing"
-
-        )
-
-
-        try:
-
-            message_id = int(
-
-                callback_query.data.split("_")[1]
-
-            )
-
-        except:
-            return
-
-
-        original_message = await client.get_messages(
-
-            callback_query.message.chat.id,
-
-            message_id
-
-        )
-
-
-        unique_id = str(uuid.uuid4())
-
-
-        input_file = (
-
-            f"temp/{unique_id}_input"
-
-        )
-
-
-        output_file = (
-
-            f"temp/{unique_id}_output.mkv"
-
-        )
-
-
-        cover_file = None
-
-
-        if data and "cover_id" in data:
-
-            cover_file = (
-
-                f"temp/{unique_id}_cover.jpg"
-
-            )
-
-
-            await client.download_media(
-
-                data["cover_id"],
-
-                file_name=cover_file
-
-            )
-
-
-        downloaded = await original_message.download(
-
-            file_name=input_file
-
-        )
-
-
-        metadata = {}
-
-
-        if data and "metadata" in data:
-
-            metadata = data["metadata"]
-
-
-        media_info = await get_media_info(
-
-            downloaded
-
-        )
-
-
-        languages = await detect_audio_languages(
-
-            media_info
-
-        )
-
-
-        if languages:
-
-            metadata["audio_languages"] = (
-
-                ", ".join(languages)
-
-            )
 
 
         await process_media(
 
-            downloaded,
+            input_file=input_file,
 
-            cover_file,
+            cover_file=cover_path,
 
-            output_file,
+            output_file=output_file,
 
-            metadata
+            metadata=metadata
 
         )
 
@@ -533,97 +287,147 @@ def register_media_handlers(app):
 
             document=output_file,
 
+            thumb=cover_path,
+
             caption="✅ Processing Completed"
 
         )
 
 
-        # Screenshots
-
-        if original_message.video:
+        await processing.delete()
 
 
-            screenshot_folder = (
+        await delete_files(
 
-                f"temp/{unique_id}_shots"
+            input_file,
+
+            output_file
+
+        )
+
+
+
+    # Screenshots
+
+    @app.on_callback_query(
+
+        filters.regex("screenshots")
+
+    )
+
+    async def screenshots_callback(
+
+        client,
+
+        callback_query
+
+    ):
+
+        user_id = callback_query.from_user.id
+
+
+        if user_id not in user_files:
+
+            return await callback_query.answer(
+
+                "❌ Send media first",
+
+                show_alert=True
 
             )
 
 
-            await generate_screenshots(
+        processing = await callback_query.message.reply_text(
 
-                output_file,
+            "⚡"
 
-                screenshot_folder
+        )
+
+
+        media_message = user_files[user_id]
+
+
+        input_file = await media_message.download(
+
+            file_name=f"temp/{user_id}_ss.mkv"
+
+        )
+
+
+        output_folder = f"temp/{user_id}_shots"
+
+
+        await generate_screenshots(
+
+            input_file,
+
+            output_folder
+
+        )
+
+
+        shots = sorted(
+
+            os.listdir(output_folder)
+
+        )[:5]
+
+
+        media_group = []
+
+
+        from pyrogram.types import InputMediaPhoto
+
+
+        for shot in shots:
+
+            media_group.append(
+
+                InputMediaPhoto(
+
+                    f"{output_folder}/{shot}"
+
+                )
 
             )
 
 
-            screenshots = []
+        await callback_query.message.reply_media_group(
+
+            media_group
+
+        )
 
 
-            for file in os.listdir(
-
-                screenshot_folder
-
-            )[:5]:
-
-                screenshots.append(
-
-                    InputMediaPhoto(
-
-                        media=f"{screenshot_folder}/{file}"
-
-                    )
-
-                )
+        await processing.delete()
 
 
-            if screenshots:
-
-
-                await callback_query.message.reply_text(
-
-                    "📸 Here are some screenshots"
-
-                )
-
-
-                await callback_query.message.reply_media_group(
-
-                    screenshots
-
-                )
-
+        for shot in shots:
 
             await delete_files(
 
-                screenshot_folder
+                f"{output_folder}/{shot}"
 
             )
 
 
         await delete_files(
 
-            downloaded,
-
-            output_file,
-
-            cover_file
+            input_file
 
         )
 
 
 
-    # Continue Buttons
+    # Audio Info
 
     @app.on_callback_query(
 
-        filters.regex("continue_without_thumb")
+        filters.regex("audio_info")
 
     )
 
-    async def continue_without_thumb(
+    async def audio_callback(
 
         client,
 
@@ -631,170 +435,33 @@ def register_media_handlers(app):
 
     ):
 
-        await callback_query.answer(
+        user_id = callback_query.from_user.id
 
-            "⚡ Continuing"
 
-        )
+        if user_id not in user_files:
 
+            return await callback_query.answer(
 
+                "❌ Send media first",
 
-    @app.on_callback_query(
-
-        filters.regex("continue_without_metadata")
-
-    )
-
-    async def continue_without_metadata(
-
-        client,
-
-        callback_query
-
-    ):
-
-        await callback_query.answer(
-
-            "⚡ Continuing"
-
-        )
-
-
-
-    @app.on_callback_query(
-
-        filters.regex("continue_anyway")
-
-    )
-
-    async def continue_anyway(
-
-        client,
-
-        callback_query
-
-    ):
-
-        await callback_query.answer(
-
-            "⚡ Continuing"
-
-        )
-
-
-
-    # Set Cover
-
-    @app.on_callback_query(
-
-        filters.regex("set_cover")
-
-    )
-
-    async def set_cover_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        await callback_query.message.reply_text(
-
-            "🖼 Send Cover Image"
-
-        )
-
-
-
-    # Set Metadata
-
-    @app.on_callback_query(
-
-        filters.regex("set_metadata")
-
-    )
-
-    async def set_metadata_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        await callback_query.message.reply_text(
-
-            "📝 Use /set_metadata"
-
-        )
-
-
-
-    # Media Info
-
-    @app.on_callback_query(
-
-        filters.regex("^info_")
-
-    )
-
-    async def media_info_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        try:
-
-            message_id = int(
-
-                callback_query.data.split("_")[1]
+                show_alert=True
 
             )
 
-        except:
-            return
+
+        media_message = user_files[user_id]
 
 
-        original_message = await client.get_messages(
+        input_file = await media_message.download(
 
-            callback_query.message.chat.id,
-
-            message_id
-
-        )
-
-
-        unique_id = str(uuid.uuid4())
-
-
-        temp_file = (
-
-            f"temp/{unique_id}_info"
-
-        )
-
-
-        downloaded = await original_message.download(
-
-            file_name=temp_file
+            file_name=f"temp/{user_id}_audio.mkv"
 
         )
 
 
         media_info = await get_media_info(
 
-            downloaded
-
-        )
-
-
-        duration = await get_duration(
-
-            media_info
+            input_file
 
         )
 
@@ -806,26 +473,29 @@ def register_media_handlers(app):
         )
 
 
-        size = round(
+        if not languages:
 
-            os.path.getsize(downloaded) /
+            text = (
 
-            (1024 * 1024),
+                "⚡ No audio language detected"
 
-            2
+            )
 
-        )
+        else:
 
+            text = (
 
-        text = (
+                "🎵 Audio Languages\n\n"
 
-            f"📦 Size: {size} MB\n"
+                + "\n".join(
 
-            f"🕒 Duration: {duration} sec\n"
+                    f"• {lang}"
 
-            f"🎧 Audio: {', '.join(languages) if languages else 'Unknown'}"
+                    for lang in languages
 
-        )
+                )
+
+            )
 
 
         await callback_query.message.reply_text(
@@ -837,6 +507,70 @@ def register_media_handlers(app):
 
         await delete_files(
 
-            downloaded
+            input_file
+
+        )
+
+
+
+    # Media Info
+
+    @app.on_callback_query(
+
+        filters.regex("media_info")
+
+    )
+
+    async def media_info_callback(
+
+        client,
+
+        callback_query
+
+    ):
+
+        user_id = callback_query.from_user.id
+
+
+        if user_id not in user_files:
+
+            return await callback_query.answer(
+
+                "❌ Send media first",
+
+                show_alert=True
+
+            )
+
+
+        media_message = user_files[user_id]
+
+
+        media = media_message.video or media_message.document
+
+
+        size = round(
+
+            media.file_size / (1024**3),
+
+            2
+
+        )
+
+
+        text = (
+
+            f"📦 Size: {size} GB\n\n"
+
+            f"📁 File Name:\n"
+
+            f"{media.file_name}"
+
+        )
+
+
+        await callback_query.message.reply_text(
+
+            text
 
         )
