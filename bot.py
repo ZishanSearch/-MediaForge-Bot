@@ -1,4 +1,7 @@
 from pyrogram import Client
+from threading import Thread
+
+from web import run_web
 
 from config import (
 
@@ -50,6 +53,11 @@ register_media_handlers(app)
 register_metadata_setup(app)
 register_broadcast_handlers(app)
 
+Thread(
+
+    target=run_web
+
+).start()
 
 print(
 
