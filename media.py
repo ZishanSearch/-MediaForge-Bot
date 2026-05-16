@@ -1,14 +1,14 @@
 import os
 
-import asyncio
-
 from pyrogram import filters
 
 from pyrogram.types import (
 
     InlineKeyboardMarkup,
 
-    InlineKeyboardButton
+    InlineKeyboardButton,
+
+    InputMediaPhoto
 
 )
 
@@ -29,7 +29,7 @@ from ffmpeg_tools import (
 from cleaner import delete_files
 
 
-user_files = {}
+media_store = {}
 
 
 def register_media_handlers(app):
@@ -112,10 +112,7 @@ def register_media_handlers(app):
 
     ):
 
-        user_id = message.from_user.id
-
-
-        user_files[user_id] = message
+        media_store[message.id] = message
 
 
         buttons = InlineKeyboardMarkup(
@@ -128,7 +125,7 @@ def register_media_handlers(app):
 
                         "🖼 Set Cover",
 
-                        callback_data="set_cover"
+                        callback_data=f"set_cover_{message.id}"
 
                     ),
 
@@ -136,7 +133,7 @@ def register_media_handlers(app):
 
                         "📝 Set Metadata",
 
-                        callback_data="set_metadata"
+                        callback_data=f"set_metadata_{message.id}"
 
                     )
 
@@ -148,7 +145,7 @@ def register_media_handlers(app):
 
                         "📸 Screenshots",
 
-                        callback_data="screenshots"
+                        callback_data=f"screenshots_{message.id}"
 
                     ),
 
@@ -156,7 +153,7 @@ def register_media_handlers(app):
 
                         "🎵 Audio Info",
 
-                        callback_data="audio_info"
+                        callback_data=f"audio_info_{message.id}"
 
                     )
 
@@ -168,7 +165,7 @@ def register_media_handlers(app):
 
                         "⚡ Process",
 
-                        callback_data="process_media"
+                        callback_data=f"process_media_{message.id}"
 
                     ),
 
@@ -176,7 +173,7 @@ def register_media_handlers(app):
 
                         "ℹ Media Info",
 
-                        callback_data="media_info"
+                        callback_data=f"media_info_{message.id}"
 
                     )
 
@@ -201,7 +198,7 @@ def register_media_handlers(app):
 
     @app.on_callback_query(
 
-        filters.regex("process_media")
+        filters.regex("^process_media_")
 
     )
 
@@ -213,14 +210,18 @@ def register_media_handlers(app):
 
     ):
 
-        user_id = callback_query.from_user.id
+        message_id = int(
+
+            callback_query.data.split("_")[-1]
+
+        )
 
 
-        if user_id not in user_files:
+        if message_id not in media_store:
 
             return await callback_query.answer(
 
-                "❌ Send media first",
+                "❌ Media Expired",
 
                 show_alert=True
 
@@ -234,17 +235,20 @@ def register_media_handlers(app):
         )
 
 
-        media_message = user_files[user_id]
+        media_message = media_store[message_id]
+
+
+        user_id = callback_query.from_user.id
 
 
         input_file = await media_message.download(
 
-            file_name=f"temp/{user_id}_input.mkv"
+            file_name=f"temp/{message_id}_input.mkv"
 
         )
 
 
-        output_file = f"temp/{user_id}_output.mkv"
+        output_file = f"temp/{message_id}_output.mkv"
 
 
         user_data = await users.find_one(
@@ -311,7 +315,7 @@ def register_media_handlers(app):
 
     @app.on_callback_query(
 
-        filters.regex("screenshots")
+        filters.regex("^screenshots_")
 
     )
 
@@ -323,14 +327,18 @@ def register_media_handlers(app):
 
     ):
 
-        user_id = callback_query.from_user.id
+        message_id = int(
+
+            callback_query.data.split("_")[-1]
+
+        )
 
 
-        if user_id not in user_files:
+        if message_id not in media_store:
 
             return await callback_query.answer(
 
-                "❌ Send media first",
+                "❌ Media Expired",
 
                 show_alert=True
 
@@ -344,17 +352,17 @@ def register_media_handlers(app):
         )
 
 
-        media_message = user_files[user_id]
+        media_message = media_store[message_id]
 
 
         input_file = await media_message.download(
 
-            file_name=f"temp/{user_id}_ss.mkv"
+            file_name=f"temp/{message_id}_ss.mkv"
 
         )
 
 
-        output_folder = f"temp/{user_id}_shots"
+        output_folder = f"temp/{message_id}_shots"
 
 
         await generate_screenshots(
@@ -374,9 +382,6 @@ def register_media_handlers(app):
 
 
         media_group = []
-
-
-        from pyrogram.types import InputMediaPhoto
 
 
         for shot in shots:
@@ -423,7 +428,7 @@ def register_media_handlers(app):
 
     @app.on_callback_query(
 
-        filters.regex("audio_info")
+        filters.regex("^audio_info_")
 
     )
 
@@ -435,26 +440,30 @@ def register_media_handlers(app):
 
     ):
 
-        user_id = callback_query.from_user.id
+        message_id = int(
+
+            callback_query.data.split("_")[-1]
+
+        )
 
 
-        if user_id not in user_files:
+        if message_id not in media_store:
 
             return await callback_query.answer(
 
-                "❌ Send media first",
+                "❌ Media Expired",
 
                 show_alert=True
 
             )
 
 
-        media_message = user_files[user_id]
+        media_message = media_store[message_id]
 
 
         input_file = await media_message.download(
 
-            file_name=f"temp/{user_id}_audio.mkv"
+            file_name=f"temp/{message_id}_audio.mkv"
 
         )
 
@@ -517,7 +526,7 @@ def register_media_handlers(app):
 
     @app.on_callback_query(
 
-        filters.regex("media_info")
+        filters.regex("^media_info_")
 
     )
 
@@ -529,21 +538,25 @@ def register_media_handlers(app):
 
     ):
 
-        user_id = callback_query.from_user.id
+        message_id = int(
+
+            callback_query.data.split("_")[-1]
+
+        )
 
 
-        if user_id not in user_files:
+        if message_id not in media_store:
 
             return await callback_query.answer(
 
-                "❌ Send media first",
+                "❌ Media Expired",
 
                 show_alert=True
 
             )
 
 
-        media_message = user_files[user_id]
+        media_message = media_store[message_id]
 
 
         media = media_message.video or media_message.document
