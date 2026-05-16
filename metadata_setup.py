@@ -10,17 +10,40 @@ from pyrogram.types import (
 
 from database import users
 
-from metadata import metadata_fields
-
 
 user_states = {}
 
+
+metadata_fields = [
+
+    "title",
+
+    "artist",
+
+    "year",
+
+    "encoder"
+
+]
+
+
+field_titles = {
+
+    "title": "🎬 Title",
+
+    "artist": "🎭 Artist",
+
+    "year": "📅 Year",
+
+    "encoder": "⚡ Encoder"
+
+}
 
 
 def register_metadata_setup(app):
 
 
-    # Start Setup
+    # Start Metadata Setup
 
     @app.on_message(
 
@@ -28,7 +51,7 @@ def register_metadata_setup(app):
 
     )
 
-    async def start_metadata_setup(
+    async def start_metadata(
 
         client,
 
@@ -39,36 +62,37 @@ def register_metadata_setup(app):
         user_id = message.from_user.id
 
 
-        data = await users.find_one(
+        user_data = await users.find_one(
 
             {"user_id": user_id}
 
+        ) or {}
+
+
+        metadata = user_data.get(
+
+            "metadata",
+
+            {}
+
         )
-
-
-        saved_metadata = {}
-
-
-        if data and "metadata" in data:
-
-            saved_metadata = data["metadata"]
 
 
         user_states[user_id] = {
 
             "step": 0,
 
-            "data": saved_metadata
+            "data": metadata
 
         }
 
 
-        current_field = metadata_fields[0]
+        field = metadata_fields[0]
 
 
-        current_value = saved_metadata.get(
+        current = metadata.get(
 
-            current_field,
+            field,
 
             "Not Set"
 
@@ -83,9 +107,9 @@ def register_metadata_setup(app):
 
                     InlineKeyboardButton(
 
-                        "⏭ Keep Current",
+                        "⏭ Skip",
 
-                        callback_data="keep_metadata"
+                        callback_data="skip_metadata"
 
                     )
 
@@ -98,19 +122,15 @@ def register_metadata_setup(app):
 
         await message.reply_text(
 
-            (
+            f"{field_titles[field]}\n\n"
 
-                f"🎬 {current_field}\n\n"
+            f"Current:\n"
 
-                f"Current:\n"
+            f"{current}\n\n"
 
-                f"{current_value}\n\n"
+            f"Send new value\n"
 
-                f"Send new value\n"
-
-                f"or press Keep Current"
-
-            ),
+            f"or press Skip",
 
             reply_markup=buttons
 
@@ -118,15 +138,63 @@ def register_metadata_setup(app):
 
 
 
-    # Keep Current Button
+    # Metadata Text Input
 
-    @app.on_callback_query(
+    @app.on_message(
 
-        filters.regex("^keep_metadata$")
+        filters.text &
+
+        ~filters.command(["start"])
 
     )
 
-    async def keep_metadata(
+    async def metadata_input(
+
+        client,
+
+        message
+
+    ):
+
+        user_id = message.from_user.id
+
+
+        if user_id not in user_states:
+
+            return
+
+
+        state = user_states[user_id]
+
+
+        step = state["step"]
+
+
+        field = metadata_fields[step]
+
+
+        state["data"][field] = message.text
+
+
+        await next_step(
+
+            message,
+
+            user_id
+
+        )
+
+
+
+    # Skip Metadata
+
+    @app.on_callback_query(
+
+        filters.regex("^skip_metadata$")
+
+    )
+
+    async def skip_metadata(
 
         client,
 
@@ -138,13 +206,14 @@ def register_metadata_setup(app):
 
 
         if user_id not in user_states:
+
             return
 
 
-        user_states[user_id]["step"] += 1
+        await callback_query.answer()
 
 
-        await next_metadata_step(
+        await next_step(
 
             callback_query.message,
 
@@ -154,171 +223,97 @@ def register_metadata_setup(app):
 
 
 
-    # Metadata Collector
+async def next_step(
 
-    @app.on_message(
+    message,
 
-        filters.text &
+    user_id
 
-        ~filters.command(
+):
 
-            [
+    state = user_states[user_id]
 
-                "start",
 
-                "set_metadata"
+    state["step"] += 1
 
-            ]
+
+    if state["step"] >= len(metadata_fields):
+
+
+        await users.update_one(
+
+            {"user_id": user_id},
+
+            {
+
+                "$set": {
+
+                    "metadata": state["data"]
+
+                }
+
+            },
+
+            upsert=True
 
         )
+
+
+        del user_states[user_id]
+
+
+        return await message.reply_text(
+
+            "✅ Metadata Saved Successfully"
+
+        )
+
+
+    field = metadata_fields[state["step"]]
+
+
+    current = state["data"].get(
+
+        field,
+
+        "Not Set"
 
     )
 
-    async def metadata_collector(
 
-        client,
+    buttons = InlineKeyboardMarkup(
 
-        message
-
-    ):
-
-        user_id = message.from_user.id
-
-
-        if user_id not in user_states:
-            return
-
-
-        current_step = user_states[user_id]["step"]
-
-
-        current_field = metadata_fields[current_step]
-
-
-        user_states[user_id]["data"][current_field] = (
-
-            message.text.strip()
-
-        )
-
-
-        user_states[user_id]["step"] += 1
-
-
-        await next_metadata_step(
-
-            message,
-
-            user_id
-
-        )
-
-
-
-    # Next Step System
-
-    async def next_metadata_step(
-
-        message,
-
-        user_id
-
-    ):
-
-        current_step = user_states[user_id]["step"]
-
-
-        total = len(metadata_fields)
-
-
-        # Finished
-
-        if current_step >= total:
-
-
-            metadata_data = user_states[user_id]["data"]
-
-
-            await users.update_one(
-
-                {"user_id": user_id},
-
-                {
-
-                    "$set": {
-
-                        "metadata": metadata_data
-
-                    }
-
-                },
-
-                upsert=True
-
-            )
-
-
-            del user_states[user_id]
-
-
-            return await message.reply_text(
-
-                "✅ Metadata Saved Successfully"
-
-            )
-
-
-        current_field = metadata_fields[current_step]
-
-
-        current_value = user_states[user_id]["data"].get(
-
-            current_field,
-
-            "Not Set"
-
-        )
-
-
-        buttons = InlineKeyboardMarkup(
+        [
 
             [
 
-                [
+                InlineKeyboardButton(
 
-                    InlineKeyboardButton(
+                    "⏭ Skip",
 
-                        "⏭ Keep Current",
+                    callback_data="skip_metadata"
 
-                        callback_data="keep_metadata"
-
-                    )
-
-                ]
+                )
 
             ]
 
-        )
+        ]
+
+    )
 
 
-        await message.reply_text(
+    await message.reply_text(
 
-            (
+        f"{field_titles[field]}\n\n"
 
-                f"🎬 {current_field}\n\n"
+        f"Current:\n"
 
-                f"Current:\n"
+        f"{current}\n\n"
 
-                f"{current_value}\n\n"
+        f"Send new value\n"
 
-                f"Send new value\n"
+        f"or press Skip",
 
-                f"or press Keep Current\n\n"
+        reply_markup=buttons
 
-                f"📊 Step: {current_step + 1}/{total}"
-
-            ),
-
-            reply_markup=buttons
-
-        )
+    )
