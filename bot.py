@@ -1,0 +1,61 @@
+from pyrogram import Client
+
+from config import (
+
+    API_ID,
+    API_HASH,
+    BOT_TOKEN
+
+)
+
+from start import register_start_handlers
+
+from owner_panel import register_owner_panel
+
+from callback_handler import register_callback_handlers
+
+from media import register_media_handlers
+
+from metadata_setup import register_metadata_setup
+from broadcast import register_broadcast_handlers
+
+
+app = Client(
+
+    "MediaForgeBot",
+
+    api_id=API_ID,
+
+    api_hash=API_HASH,
+
+    bot_token=BOT_TOKEN,
+
+    workers=50,
+
+    sleep_threshold=30
+
+)
+
+
+# Register Systems
+
+register_start_handlers(app)
+
+register_owner_panel(app)
+
+register_callback_handlers(app)
+
+register_media_handlers(app)
+
+register_metadata_setup(app)
+register_broadcast_handlers(app)
+
+
+print(
+
+    "🔥 MediaForge Bot Started"
+
+)
+
+
+app.run()

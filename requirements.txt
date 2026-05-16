@@ -1,0 +1,12 @@
+pyrogram
+tgcrypto
+motor
+python-dotenv
+ffmpeg-python
+aiofiles
+Pillow
+psutil
+hachoir
+pymongo
+dnspython
+asyncio
