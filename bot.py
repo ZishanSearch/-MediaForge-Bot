@@ -1,4 +1,5 @@
 from pyrogram import Client
+
 from threading import Thread
 
 from web import run_web
@@ -6,7 +7,9 @@ from web import run_web
 from config import (
 
     API_ID,
+
     API_HASH,
+
     BOT_TOKEN
 
 )
@@ -20,6 +23,7 @@ from callback_handler import register_callback_handlers
 from media import register_media_handlers
 
 from metadata_setup import register_metadata_setup
+
 from broadcast import register_broadcast_handlers
 
 
@@ -51,13 +55,18 @@ register_callback_handlers(app)
 register_media_handlers(app)
 
 register_metadata_setup(app)
+
 register_broadcast_handlers(app)
+
+
+# Fake Web Server
 
 Thread(
 
     target=run_web
 
 ).start()
+
 
 print(
 
