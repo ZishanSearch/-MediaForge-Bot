@@ -2,9 +2,9 @@ import os
 
 import json
 
-import subprocess
+import asyncio
 
-import shlex
+import subprocess
 
 
 
@@ -15,9 +15,11 @@ async def get_media_info(file_path):
         "ffprobe",
 
         "-v",
+
         "quiet",
 
         "-print_format",
+
         "json",
 
         "-show_format",
@@ -29,11 +31,7 @@ async def get_media_info(file_path):
     ]
 
 
-    result = subprocess.check_output(
-
-        cmd
-
-    )
+    result = subprocess.check_output(cmd)
 
 
     return json.loads(result)
@@ -43,13 +41,16 @@ async def get_media_info(file_path):
 async def process_media(
 
     input_file,
+
     cover_file,
+
     output_file,
+
     metadata=None
 
 ):
 
-    metadata_cmd = ""
+    metadata_cmd = []
 
 
     if metadata:
@@ -58,63 +59,112 @@ async def process_media(
 
             if value:
 
-                metadata_cmd += (
+                metadata_cmd.extend(
 
-                    f'-metadata {key}="{value}" '
+                    [
+
+                        "-metadata",
+
+                        f"{key}={value}"
+
+                    ]
 
                 )
 
 
-    cover_cmd = ""
+    cmd = [
 
+        "ffmpeg",
+
+        "-i",
+
+        input_file
+
+    ]
+
+
+    # Cover
 
     if cover_file:
 
-        cover_cmd = (
+        cmd.extend(
 
-            f'-i "{cover_file}" '
+            [
 
-            f'-map 0 -map 1 '
+                "-i",
 
-            f'-disposition:v:1 attached_pic '
+                cover_file,
+
+                "-map",
+
+                "0",
+
+                "-map",
+
+                "1",
+
+                "-disposition:v:1",
+
+                "attached_pic"
+
+            ]
 
         )
 
 
-    cmd = (
+    # Fast Stream Copy
 
-        f'ffmpeg -y '
+    cmd.extend(
 
-        f'-i "{input_file}" '
+        [
 
-        f'{cover_cmd} '
+            "-c",
 
-        f'-c copy '
+            "copy"
 
-        f'{metadata_cmd} '
-
-        f'"{output_file}"'
+        ]
 
     )
 
 
-    subprocess.run(
+    # Metadata
 
-        shlex.split(cmd),
+    cmd.extend(metadata_cmd)
 
-        stdout=subprocess.DEVNULL,
 
-        stderr=subprocess.DEVNULL
+    cmd.extend(
+
+        [
+
+            "-y",
+
+            output_file
+
+        ]
 
     )
+
+
+    process = await asyncio.create_subprocess_exec(
+
+        *cmd,
+
+        stdout=asyncio.subprocess.PIPE,
+
+        stderr=asyncio.subprocess.PIPE
+
+    )
+
+
+    await process.communicate()
 
 
 
 async def generate_screenshots(
 
     video,
-    output_folder,
-    count=5
+
+    output_folder
 
 ):
 
@@ -127,30 +177,37 @@ async def generate_screenshots(
     )
 
 
-    cmd = (
+    cmd = [
 
-        f'ffmpeg -y '
+        "ffmpeg",
 
-        f'-i "{video}" '
+        "-i",
 
-        f'-vf fps=1/60 '
+        video,
 
-        f'-q:v 2 '
+        "-vf",
 
-        f'"{output_folder}/shot_%03d.jpg"'
+        "fps=1/30",
+
+        f"{output_folder}/shot_%03d.jpg",
+
+        "-y"
+
+    ]
+
+
+    process = await asyncio.create_subprocess_exec(
+
+        *cmd,
+
+        stdout=asyncio.subprocess.PIPE,
+
+        stderr=asyncio.subprocess.PIPE
 
     )
 
 
-    subprocess.run(
-
-        shlex.split(cmd),
-
-        stdout=subprocess.DEVNULL,
-
-        stderr=subprocess.DEVNULL
-
-    )
+    await process.communicate()
 
 
 
@@ -166,6 +223,7 @@ async def detect_audio_languages(
     for stream in media_info.get(
 
         "streams",
+
         []
 
     ):
@@ -180,6 +238,7 @@ async def detect_audio_languages(
             tags = stream.get(
 
                 "tags",
+
                 {}
 
             )
@@ -194,11 +253,7 @@ async def detect_audio_languages(
 
             if lang:
 
-                languages.append(
-
-                    lang.upper()
-
-                )
+                languages.append(lang)
 
 
     return list(
@@ -206,60 +261,3 @@ async def detect_audio_languages(
         set(languages)
 
     )
-
-
-
-async def get_duration(
-
-    media_info
-
-):
-
-    try:
-
-        duration = float(
-
-            media_info["format"]["duration"]
-
-        )
-
-        return int(duration)
-
-    except:
-        return 0
-
-
-
-async def clean_filename(
-
-    filename
-
-):
-
-    invalid_chars = [
-
-        "<",
-        ">",
-        ":",
-        '"',
-        "/",
-        "\\",
-        "|",
-        "?",
-        "*"
-
-    ]
-
-
-    for char in invalid_chars:
-
-        filename = filename.replace(
-
-            char,
-
-            ""
-
-        )
-
-
-    return filename.strip()
