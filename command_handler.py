@@ -1,24 +1,12 @@
 from pyrogram import filters
 
-from database import users
+from pyrogram.types import (
 
-from media import media_store
+    InlineKeyboardMarkup,
 
-from ffmpeg_tools import (
-
-    generate_screenshots,
-
-    get_media_info,
-
-    detect_audio_languages
+    InlineKeyboardButton
 
 )
-
-from cleaner import delete_files
-
-import os
-
-from pyrogram.types import InputMediaPhoto
 
 
 def register_command_handlers(app):
@@ -49,9 +37,35 @@ def register_command_handlers(app):
             )
 
 
+        media_id = message.reply_to_message.id
+
+
+        buttons = InlineKeyboardMarkup(
+
+            [
+
+                [
+
+                    InlineKeyboardButton(
+
+                        "⚡ Process",
+
+                        callback_data=f"process_media_{media_id}"
+
+                    )
+
+                ]
+
+            ]
+
+        )
+
+
         await message.reply_text(
 
-            "⚡"
+            "⚡ Ready To Process",
+
+            reply_markup=buttons
 
         )
 
@@ -82,169 +96,79 @@ def register_command_handlers(app):
             )
 
 
-        processing = await message.reply_text(
-
-            "⚡"
-
-        )
+        media_id = message.reply_to_message.id
 
 
-        media_message = message.reply_to_message
+        buttons = InlineKeyboardMarkup(
 
+            [
 
-        input_file = await media_message.download(
+                [
 
-            file_name=f"temp/{message.id}_cmd_ss.mkv"
+                    InlineKeyboardButton(
 
-        )
+                        "3️⃣",
 
+                        callback_data=f"ss_3_{media_id}"
 
-        output_folder = f"temp/{message.id}_cmd_shots"
+                    ),
 
+                    InlineKeyboardButton(
 
-        await generate_screenshots(
+                        "5️⃣",
 
-            input_file,
+                        callback_data=f"ss_5_{media_id}"
 
-            output_folder
+                    ),
 
-        )
+                    InlineKeyboardButton(
 
+                        "7️⃣",
 
-        shots = sorted(
+                        callback_data=f"ss_7_{media_id}"
 
-            os.listdir(output_folder)
+                    )
 
-        )[:5]
+                ],
 
+                [
 
-        media_group = []
+                    InlineKeyboardButton(
 
+                        "1️⃣0️⃣",
 
-        for shot in shots:
+                        callback_data=f"ss_10_{media_id}"
 
-            media_group.append(
+                    ),
 
-                InputMediaPhoto(
+                    InlineKeyboardButton(
 
-                    f"{output_folder}/{shot}"
+                        "1️⃣2️⃣",
 
-                )
+                        callback_data=f"ss_12_{media_id}"
 
-            )
+                    ),
 
+                    InlineKeyboardButton(
 
-        await message.reply_media_group(
+                        "1️⃣5️⃣",
 
-            media_group
+                        callback_data=f"ss_15_{media_id}"
 
-        )
+                    )
 
+                ]
 
-        await processing.delete()
-
-
-        for shot in shots:
-
-            await delete_files(
-
-                f"{output_folder}/{shot}"
-
-            )
-
-
-        await delete_files(
-
-            input_file
+            ]
 
         )
-
-
-
-    # Audio Info Command
-
-    @app.on_message(
-
-        filters.command("audio")
-
-    )
-
-    async def audio_command(
-
-        client,
-
-        message
-
-    ):
-
-        if not message.reply_to_message:
-
-            return await message.reply_text(
-
-                "❌ Reply to media"
-
-            )
-
-
-        media_message = message.reply_to_message
-
-
-        input_file = await media_message.download(
-
-            file_name=f"temp/{message.id}_audio.mkv"
-
-        )
-
-
-        media_info = await get_media_info(
-
-            input_file
-
-        )
-
-
-        languages = await detect_audio_languages(
-
-            media_info
-
-        )
-
-
-        if not languages:
-
-            text = (
-
-                "⚡ No audio language detected"
-
-            )
-
-        else:
-
-            text = (
-
-                "🎵 Audio Languages\n\n"
-
-                + "\n".join(
-
-                    f"• {lang}"
-
-                    for lang in languages
-
-                )
-
-            )
 
 
         await message.reply_text(
 
-            text
+            "📸 Select Screenshot Count",
 
-        )
-
-
-        await delete_files(
-
-            input_file
+            reply_markup=buttons
 
         )
 
@@ -314,15 +238,15 @@ def register_command_handlers(app):
 
 
 
-    # Meta Command
+    # Audio Info Command
 
     @app.on_message(
 
-        filters.command("meta")
+        filters.command("audio")
 
     )
 
-    async def meta_command(
+    async def audio_command(
 
         client,
 
@@ -330,95 +254,17 @@ def register_command_handlers(app):
 
     ):
 
-        if len(message.command) < 3:
+        if not message.reply_to_message:
 
             return await message.reply_text(
 
-                "❌ Example:\n/meta title Solo Leveling"
+                "❌ Reply to media"
 
             )
-
-
-        field = message.command[1]
-
-        value = " ".join(
-
-            message.command[2:]
-
-        )
-
-
-        allowed = [
-
-            "title",
-
-            "artist",
-
-            "year",
-
-            "encoder",
-
-            "genre",
-
-            "comment",
-
-            "subtitle"
-
-        ]
-
-
-        if field not in allowed:
-
-            return await message.reply_text(
-
-                "❌ Invalid metadata field"
-
-            )
-
-
-        user_id = message.from_user.id
-
-
-        user_data = await users.find_one(
-
-            {"user_id": user_id}
-
-        ) or {}
-
-
-        metadata = user_data.get(
-
-            "metadata",
-
-            {}
-
-        )
-
-
-        metadata[field] = value
-
-
-        await users.update_one(
-
-            {"user_id": user_id},
-
-            {
-
-                "$set": {
-
-                    "metadata": metadata
-
-                }
-
-            },
-
-            upsert=True
-
-        )
 
 
         await message.reply_text(
 
-            f"✅ {field} updated"
+            "🎵 Use inline Audio Info button"
 
         )
