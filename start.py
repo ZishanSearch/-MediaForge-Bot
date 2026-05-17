@@ -169,44 +169,28 @@ def register_start_handlers(app):
             [
 
                 [
+                InlineKeyboardButton(
+                    "🖼 Set Cover",
+                    callback_data="dummy"
+                ),
 
-                    InlineKeyboardButton(
+                InlineKeyboardButton(
+                    "📝 Metadata",
+                    callback_data="dummy"
+                )
+           ],
 
-                        "🖼 Set Cover",
+           [
+                InlineKeyboardButton(
+                    "📸 Screenshots",
+                    callback_data="dummy"
+           ),
 
-                        callback_data="home_cover"
-
-                    ),
-
-                    InlineKeyboardButton(
-
-                        "📝 Metadata",
-
-                        callback_data="home_meta"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "📸 Screenshots",
-
-                        callback_data="home_ss"
-
-                    ),
-
-                    InlineKeyboardButton(
-
-                        "⚡ Process",
-
-                        callback_data="home_process"
-
-                    )
-
-                ],
+                InlineKeyboardButton(
+                    "⚡ Process",
+                    callback_data="dummy"
+           )
+           ],
 
                 [
 
