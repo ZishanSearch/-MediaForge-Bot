@@ -6,36 +6,135 @@ from pyrogram.types import (
 
     InlineKeyboardMarkup,
 
-    InlineKeyboardButton,
-
-    InputMediaPhoto
+    InlineKeyboardButton
 
 )
 
 from database import users
 
-from ffmpeg_tools import (
-
-    process_media,
-
-    generate_screenshots,
-
-    get_media_info,
-
-    detect_audio_languages
-
-)
-
-from cleaner import delete_files
-
 
 media_store = {}
+
+metadata_editor = {}
+
+global_metadata = {}
+
+global_cover = {}
+
+
+def media_buttons(media_id):
+
+    return InlineKeyboardMarkup(
+
+        [
+
+            [
+
+                InlineKeyboardButton(
+
+                    "🖼 Set Cover",
+
+                    callback_data=f"setcover_{media_id}"
+
+                ),
+
+                InlineKeyboardButton(
+
+                    "📝 Metadata",
+
+                    callback_data=f"metadata_{media_id}"
+
+                )
+
+            ],
+
+            [
+
+                InlineKeyboardButton(
+
+                    "📸 Screenshots",
+
+                    callback_data=f"screenshotmenu_{media_id}"
+
+                ),
+
+                InlineKeyboardButton(
+
+                    "⚡ Process",
+
+                    callback_data=f"process_{media_id}"
+
+                )
+
+            ],
+
+            [
+
+                InlineKeyboardButton(
+
+                    "ℹ Media Info",
+
+                    callback_data=f"info_{media_id}"
+
+                )
+
+            ]
+
+        ]
+
+    )
 
 
 def register_media_handlers(app):
 
 
-    # Save Cover
+    # Save Media
+
+    @app.on_message(
+
+        filters.video |
+
+        filters.document
+
+    )
+
+    async def media_handler(
+
+        client,
+
+        message
+
+    ):
+
+        media_id = message.id
+
+
+        media_store[media_id] = {
+
+            "message": message,
+
+            "metadata": {},
+
+            "cover": None
+
+        }
+
+
+        await message.reply_text(
+
+            "⚡ Select Action",
+
+            reply_markup=media_buttons(
+
+                media_id
+
+            )
+
+        )
+
+
+
+    # Save Cover Photo
 
     @app.on_message(filters.photo)
 
@@ -50,6 +149,14 @@ def register_media_handlers(app):
         user_id = message.from_user.id
 
 
+        if user_id not in metadata_editor:
+
+            return
+
+
+        media_id = metadata_editor[user_id]
+
+
         processing = await message.reply_text(
 
             "⚡"
@@ -59,28 +166,12 @@ def register_media_handlers(app):
 
         photo_path = await message.download(
 
-            file_name=f"temp/{user_id}_cover.jpg"
+            file_name=f"temp/{media_id}_cover.jpg"
 
         )
 
 
-        await users.update_one(
-
-            {"user_id": user_id},
-
-            {
-
-                "$set": {
-
-                    "cover": photo_path
-
-                }
-
-            },
-
-            upsert=True
-
-        )
+        media_store[media_id]["cover"] = photo_path
 
 
         await processing.delete()
@@ -88,23 +179,31 @@ def register_media_handlers(app):
 
         await message.reply_text(
 
-            "🖼 Cover Saved Successfully"
+            "🖼 Cover Saved"
 
         )
 
 
 
-    # Video Handler
+    # Metadata Input
 
     @app.on_message(
 
-        filters.video |
+        filters.text &
 
-        filters.document
+        ~filters.command([
+
+            "start",
+
+            "broadcast",
+
+            "panel"
+
+        ])
 
     )
 
-    async def video_handler(
+    async def metadata_input(
 
         client,
 
@@ -112,7 +211,35 @@ def register_media_handlers(app):
 
     ):
 
-        media_store[message.id] = message
+        user_id = message.from_user.id
+
+
+        if user_id not in metadata_editor:
+
+            return
+
+
+        data = metadata_editor[user_id]
+
+
+        if isinstance(data, int):
+
+            return
+
+
+        media_id = data["media_id"]
+
+        field = data["field"]
+
+
+        media_store[media_id]["metadata"][field] = (
+
+            message.text
+
+        )
+
+
+        del metadata_editor[user_id]
 
 
         buttons = InlineKeyboardMarkup(
@@ -123,17 +250,9 @@ def register_media_handlers(app):
 
                     InlineKeyboardButton(
 
-                        "🖼 Set Cover",
+                        "💾 Save For All Files",
 
-                        callback_data=f"set_cover_{message.id}"
-
-                    ),
-
-                    InlineKeyboardButton(
-
-                        "📝 Set Metadata",
-
-                        callback_data=f"set_metadata_{message.id}"
+                        callback_data=f"saveall_{media_id}"
 
                     )
 
@@ -143,37 +262,9 @@ def register_media_handlers(app):
 
                     InlineKeyboardButton(
 
-                        "📸 Screenshots",
+                        "📁 Save For This File Only",
 
-                        callback_data=f"screenshots_{message.id}"
-
-                    ),
-
-                    InlineKeyboardButton(
-
-                        "🎵 Audio Info",
-
-                        callback_data=f"audio_info_{message.id}"
-
-                    )
-
-                ],
-
-                [
-
-                    InlineKeyboardButton(
-
-                        "⚡ Process",
-
-                        callback_data=f"process_media_{message.id}"
-
-                    ),
-
-                    InlineKeyboardButton(
-
-                        "ℹ Media Info",
-
-                        callback_data=f"media_info_{message.id}"
+                        callback_data=f"savefile_{media_id}"
 
                     )
 
@@ -186,404 +277,8 @@ def register_media_handlers(app):
 
         await message.reply_text(
 
-            "⚡ Select Action",
+            f"✅ {field} Saved",
 
             reply_markup=buttons
-
-        )
-
-
-
-    # Process Media
-
-    @app.on_callback_query(
-
-        filters.regex("^process_media_")
-
-    )
-
-    async def process_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        message_id = int(
-
-            callback_query.data.split("_")[-1]
-
-        )
-
-
-        if message_id not in media_store:
-
-            return await callback_query.answer(
-
-                "❌ Media Expired",
-
-                show_alert=True
-
-            )
-
-
-        processing = await callback_query.message.reply_text(
-
-            "⚡"
-
-        )
-
-
-        media_message = media_store[message_id]
-
-
-        user_id = callback_query.from_user.id
-
-
-        input_file = await media_message.download(
-
-            file_name=f"temp/{message_id}_input.mkv"
-
-        )
-
-
-        output_file = f"temp/{message_id}_output.mkv"
-
-
-        user_data = await users.find_one(
-
-            {"user_id": user_id}
-
-        ) or {}
-
-
-        metadata = user_data.get(
-
-            "metadata",
-
-            {}
-
-        )
-
-
-        cover_path = user_data.get(
-
-            "cover"
-
-        )
-
-
-        await process_media(
-
-            input_file=input_file,
-
-            cover_file=cover_path,
-
-            output_file=output_file,
-
-            metadata=metadata
-
-        )
-
-
-        await callback_query.message.reply_document(
-
-            document=output_file,
-
-            thumb=cover_path,
-
-            caption="✅ Processing Completed"
-
-        )
-
-
-        await processing.delete()
-
-
-        await delete_files(
-
-            input_file,
-
-            output_file
-
-        )
-
-
-
-    # Screenshots
-
-    @app.on_callback_query(
-
-        filters.regex("^screenshots_")
-
-    )
-
-    async def screenshots_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        message_id = int(
-
-            callback_query.data.split("_")[-1]
-
-        )
-
-
-        if message_id not in media_store:
-
-            return await callback_query.answer(
-
-                "❌ Media Expired",
-
-                show_alert=True
-
-            )
-
-
-        processing = await callback_query.message.reply_text(
-
-            "⚡"
-
-        )
-
-
-        media_message = media_store[message_id]
-
-
-        input_file = await media_message.download(
-
-            file_name=f"temp/{message_id}_ss.mkv"
-
-        )
-
-
-        output_folder = f"temp/{message_id}_shots"
-
-
-        await generate_screenshots(
-
-            input_file,
-
-            output_folder
-
-        )
-
-
-        shots = sorted(
-
-            os.listdir(output_folder)
-
-        )[:5]
-
-
-        media_group = []
-
-
-        for shot in shots:
-
-            media_group.append(
-
-                InputMediaPhoto(
-
-                    f"{output_folder}/{shot}"
-
-                )
-
-            )
-
-
-        await callback_query.message.reply_media_group(
-
-            media_group
-
-        )
-
-
-        await processing.delete()
-
-
-        for shot in shots:
-
-            await delete_files(
-
-                f"{output_folder}/{shot}"
-
-            )
-
-
-        await delete_files(
-
-            input_file
-
-        )
-
-
-
-    # Audio Info
-
-    @app.on_callback_query(
-
-        filters.regex("^audio_info_")
-
-    )
-
-    async def audio_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        message_id = int(
-
-            callback_query.data.split("_")[-1]
-
-        )
-
-
-        if message_id not in media_store:
-
-            return await callback_query.answer(
-
-                "❌ Media Expired",
-
-                show_alert=True
-
-            )
-
-
-        media_message = media_store[message_id]
-
-
-        input_file = await media_message.download(
-
-            file_name=f"temp/{message_id}_audio.mkv"
-
-        )
-
-
-        media_info = await get_media_info(
-
-            input_file
-
-        )
-
-
-        languages = await detect_audio_languages(
-
-            media_info
-
-        )
-
-
-        if not languages:
-
-            text = (
-
-                "⚡ No audio language detected"
-
-            )
-
-        else:
-
-            text = (
-
-                "🎵 Audio Languages\n\n"
-
-                + "\n".join(
-
-                    f"• {lang}"
-
-                    for lang in languages
-
-                )
-
-            )
-
-
-        await callback_query.message.reply_text(
-
-            text
-
-        )
-
-
-        await delete_files(
-
-            input_file
-
-        )
-
-
-
-    # Media Info
-
-    @app.on_callback_query(
-
-        filters.regex("^media_info_")
-
-    )
-
-    async def media_info_callback(
-
-        client,
-
-        callback_query
-
-    ):
-
-        message_id = int(
-
-            callback_query.data.split("_")[-1]
-
-        )
-
-
-        if message_id not in media_store:
-
-            return await callback_query.answer(
-
-                "❌ Media Expired",
-
-                show_alert=True
-
-            )
-
-
-        media_message = media_store[message_id]
-
-
-        media = media_message.video or media_message.document
-
-
-        size = round(
-
-            media.file_size / (1024**3),
-
-            2
-
-        )
-
-
-        text = (
-
-            f"📦 Size: {size} GB\n\n"
-
-            f"📁 File Name:\n"
-
-            f"{media.file_name}"
-
-        )
-
-
-        await callback_query.message.reply_text(
-
-            text
 
         )
