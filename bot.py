@@ -1,3 +1,5 @@
+import os
+
 from pyrogram import Client
 
 from threading import Thread
@@ -22,10 +24,20 @@ from callback_handler import register_callback_handlers
 
 from media import register_media_handlers
 
-from metadata_setup import register_metadata_setup
-
 from broadcast import register_broadcast_handlers
+
 from command_handler import register_command_handlers
+
+
+# Auto Create Temp Folder
+
+os.makedirs(
+
+    "temp",
+
+    exist_ok=True
+
+)
 
 
 app = Client(
@@ -55,11 +67,10 @@ register_callback_handlers(app)
 
 register_media_handlers(app)
 
-register_metadata_setup(app)
-
 register_broadcast_handlers(app)
 
 register_command_handlers(app)
+
 
 # Fake Web Server
 
