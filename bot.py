@@ -31,13 +31,9 @@ from command_handler import register_command_handlers
 
 # Auto Create Temp Folder
 
-os.makedirs(
+if not os.path.exists("temp"):
 
-    "temp",
-
-    exist_ok=True
-
-)
+    os.makedirs("temp")
 
 
 app = Client(
