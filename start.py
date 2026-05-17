@@ -8,7 +8,11 @@ from pyrogram.types import (
 
 )
 
-from pyrogram.errors import UserNotParticipant
+from pyrogram.errors import (
+
+    UserNotParticipant
+
+)
 
 from config import (
 
@@ -20,8 +24,6 @@ from config import (
 
 )
 
-from database import users
-
 
 CHANNEL_USERNAME = "xuluzone"
 
@@ -31,42 +33,19 @@ OTHER_BOT = "https://t.me/Cleanerxulubot"
 def register_start_handlers(app):
 
 
-    # Start Command
-
     @app.on_message(
 
         filters.command("start")
 
     )
 
-    async def start_command(    
+    async def start_command(
 
         client,
 
         message
 
     ):
-
-        user_id = message.from_user.id
-
-
-        await users.update_one(
-
-            {"user_id": user_id},
-
-            {
-
-                "$set": {
-
-                    "user_id": user_id
-
-                }
-
-            },
-
-            upsert=True
-
-        )
 
         buttons = InlineKeyboardMarkup(
 
@@ -111,25 +90,25 @@ def register_start_handlers(app):
 
         caption = (
 
-            f"👋 Hello {message.from_user.mention}\n\n"
+            f"👋 Hello "
 
-            f"Welcome to {BOT_NAME}\n\n"
+            f"{message.from_user.mention}\n\n"
 
-            f"⚡ Advanced media processing bot\n"
+            f"Welcome to "
 
-            f"with thumbnail editor,\n"
+            f"{BOT_NAME}\n\n"
 
-            f"metadata editor,\n"
+            f"⚡ Ultra Fast Media Editor\n"
+
+            f"with metadata,\n"
+
+            f"thumbnails,\n"
 
             f"screenshots,\n"
 
-            f"audio detection\n"
+            f"and instant processing.\n\n"
 
-            f"and more.\n\n"
-
-            f"📢 Please join our channel\n"
-
-            f"to continue using the bot."
+            f"📢 Join channel to continue."
 
         )
 
@@ -145,8 +124,6 @@ def register_start_handlers(app):
         )
 
 
-
-    # Joined Button
 
     @app.on_callback_query(
 
@@ -180,7 +157,7 @@ def register_start_handlers(app):
 
             return await callback_query.answer(
 
-                "❌ Please join the channel first.",
+                "❌ Join channel first",
 
                 show_alert=True
 
@@ -195,9 +172,9 @@ def register_start_handlers(app):
 
                     InlineKeyboardButton(
 
-                        "🖼 Thumbnail",
+                        "🖼 Set Cover",
 
-                        callback_data="thumbnail_help"
+                        callback_data="home_cover"
 
                     ),
 
@@ -205,7 +182,7 @@ def register_start_handlers(app):
 
                         "📝 Metadata",
 
-                        callback_data="metadata_help"
+                        callback_data="home_meta"
 
                     )
 
@@ -217,9 +194,21 @@ def register_start_handlers(app):
 
                         "📸 Screenshots",
 
-                        callback_data="screenshot_help"
+                        callback_data="home_ss"
 
                     ),
+
+                    InlineKeyboardButton(
+
+                        "⚡ Process",
+
+                        callback_data="home_process"
+
+                    )
+
+                ],
+
+                [
 
                     InlineKeyboardButton(
 
@@ -238,13 +227,13 @@ def register_start_handlers(app):
 
         caption = (
 
-            f"👋 Hello {callback_query.from_user.mention}\n\n"
+            f"👋 Hello "
 
-            f"Welcome to {BOT_NAME}\n\n"
+            f"{callback_query.from_user.mention}\n\n"
 
-            f"⚡ Your advanced media editor\n"
+            f"{BOT_NAME} "
 
-            f"is ready to use."
+            f"is ready to use 😎🔥"
 
         )
 
