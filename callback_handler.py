@@ -178,7 +178,7 @@ def register_callback_handlers(app):
 
     @app.on_callback_query(
 
-        filters.regex("^set_cover$")
+        filters.regex("^set_cover_")
 
     )
 
@@ -205,7 +205,7 @@ def register_callback_handlers(app):
 
     @app.on_callback_query(
 
-        filters.regex("^set_metadata$")
+        filters.regex("^set_metadata_")
 
     )
 
@@ -216,6 +216,12 @@ def register_callback_handlers(app):
         callback_query
 
     ):
+
+        message_id = int(
+
+            callback_query.data.split("_")[-1]
+
+        )
 
         await callback_query.answer()
 
