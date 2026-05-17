@@ -222,12 +222,27 @@ def register_media_handlers(app):
         data = metadata_editor[user_id]
 
 
-        if isinstance(data, int):
-
-            return
-
-
         media_id = data["media_id"]
+
+        if data["field"] == "cover":
+
+    processing = await message.reply_text(
+        "⚡"
+    )
+
+    photo_path = await message.download(
+        file_name=f"temp/{media_id}_cover.jpg"
+    )
+
+    media_store[media_id]["cover"] = photo_path
+
+    del metadata_editor[user_id]
+
+    await processing.delete()
+
+    return await message.reply_text(
+        "🖼 Cover Saved"
+    )
 
         field = data["field"]
 
