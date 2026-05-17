@@ -217,12 +217,11 @@ def register_callback_handlers(app):
 
 
         metadata_editor[
-
             callback_query.from_user.id
-
         ] = {
-
             "media_id": media_id,
+            "field": "cover"
+        }
 
             "field": field
 
